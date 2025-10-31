@@ -102,7 +102,42 @@ export default function ClientDetails() {
   };
 
   const handlePrint = () => {
-    window.print();
+    const printContents = printRef.current?.innerHTML;
+    if (!printContents) return;
+
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Open new window for mobile-friendly print
+      const newWindow = window.open("", "_blank");
+      if (!newWindow) return;
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>Receipt</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 10px; background: white; }
+              h1,h2 { text-align: center; margin: 5px 0; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+              .total { font-weight: bold; margin-top: 10px; display: flex; justify-content: space-between; }
+              @media print {
+                body { margin: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContents}
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+      newWindow.focus();
+      newWindow.print();
+    } else {
+      // Desktop print
+      window.print();
+    }
   };
 
   if (loading)
@@ -119,7 +154,6 @@ export default function ClientDetails() {
       <Sidebar active="Order List…" />
       <main className="flex-1 p-10">
         <style jsx global>{`
-          /* 🧾 Hide sidebar and buttons in print */
           @media print {
             aside,
             .no-print {
@@ -134,10 +168,25 @@ export default function ClientDetails() {
             table {
               width: 100%;
               font-size: 12px;
+              border-collapse: collapse;
+            }
+            th, td {
+              border: 1px solid #ccc;
+              padding: 6px;
             }
             th:last-child,
             td:last-child {
               display: none; /* hide Actions column */
+            }
+
+            /* Mobile-friendly print scaling */
+            @page {
+              size: auto;
+              margin: 10mm;
+            }
+            @media (max-width: 768px) {
+              table { font-size: 10px; }
+              h1, h2 { font-size: 16px; }
             }
           }
         `}</style>
@@ -161,7 +210,7 @@ export default function ClientDetails() {
             Client: {decodedClient} — Date: {decodedDate}
           </p>
 
-          <div className="bg-white p-6 rounded-2xl shadow-md mt-4">
+          <div className="bg-white p-6 rounded-2xl shadow-md mt-4 overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="text-gray-500 border-b">
