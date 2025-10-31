@@ -65,10 +65,18 @@ export default function Dashboard() {
     groupedOrders[order.client].push(order);
   });
 
+  // Show only 2 most recent clients (by latest order date)
+  const sortedClientEntries = Object.entries(groupedOrders)
+    .sort(([, a], [, b]) => {
+      const aDate = new Date(a[a.length - 1]?.date || "1970-01-01");
+      const bDate = new Date(b[b.length - 1]?.date || "1970-01-01");
+      return bDate.getTime() - aDate.getTime();
+    })
+    .slice(0, 2);
+
   return (
     <div className="min-h-screen flex bg-gray-50">
       <Sidebar active="Home" />
-
       <div className="flex-1 p-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -79,7 +87,6 @@ export default function Dashboard() {
             Create Order
           </a>
         </div>
-
         <div className="grid grid-cols-2 gap-6 mb-8">
           <div className="bg-white p-6 rounded shadow flex flex-col">
             <div className="text-lg text-gray-700">Month</div>
@@ -90,15 +97,14 @@ export default function Dashboard() {
             <div className="text-3xl font-bold">₱{weekTotal.toLocaleString()}</div>
           </div>
         </div>
-
         <h2 className="text-xl font-semibold mb-4">Recent Orders</h2>
         {loading ? (
           <div>Loading orders...</div>
-        ) : Object.keys(groupedOrders).length === 0 ? (
+        ) : sortedClientEntries.length === 0 ? (
           <div>No orders yet</div>
         ) : (
           <div className="grid grid-cols-2 gap-6">
-            {Object.entries(groupedOrders).map(([clientName, clientOrders], idx) => (
+            {sortedClientEntries.map(([clientName, clientOrders], idx) => (
               <OrderTable key={idx} clientName={clientName} orders={clientOrders} />
             ))}
           </div>
