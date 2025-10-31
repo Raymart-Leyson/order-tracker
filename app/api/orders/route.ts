@@ -1,44 +1,55 @@
-import { NextRequest, NextResponse } from "next/server"; // ✅ this import was missing
+import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "../../lib/mongodb";
 
 const dbName = "project1";
 const collectionName = "orders";
 
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const orders = await req.json();
 
+    // Validation
     if (!Array.isArray(orders) || orders.length === 0) {
-      return NextResponse.json({ error: "Invalid or empty orders array." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid or empty orders array." },
+        { status: 400 }
+      );
     }
 
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db(dbName);
     const collection = db.collection(collectionName);
 
+    // Insert
     const result = await collection.insertMany(orders);
-    return NextResponse.json({ insertedCount: result.insertedCount }, { status: 201 });
-  } catch (error) {
-    console.error("Error inserting orders:", error);
-    return NextResponse.json({ error: "Failed to insert orders." }, { status: 500 });
+    console.log("Inserted orders:", result.insertedCount);
+
+    return NextResponse.json(
+      { message: "Orders inserted successfully!", insertedCount: result.insertedCount },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("Error inserting orders:", error?.message || error);
+    return NextResponse.json(
+      { error: `Failed to insert orders: ${error?.message || "Unknown error"}` },
+      { status: 500 }
+    );
   }
 }
 
-// ✅ GET — fetch all orders
 export async function GET() {
   try {
     const client = await clientPromise;
     const collection = client.db(dbName).collection(collectionName);
     const orders = await collection.find({}).toArray();
     return NextResponse.json(orders);
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error("GET error:", err?.message || err);
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
   }
 }
 
-// ✅ PATCH — update order (client + product + date)
 export async function PATCH(req: NextRequest) {
   try {
     const data = await req.json();
@@ -64,13 +75,12 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message: "Order updated successfully" });
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error("PATCH error:", err?.message || err);
     return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
   }
 }
 
-// ✅ DELETE — delete order (client + product + date)
 export async function DELETE(req: NextRequest) {
   try {
     const data = await req.json();
@@ -93,8 +103,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, message: "Order deleted successfully" });
-  } catch (err) {
-    console.error(err);
+  } catch (err: any) {
+    console.error("DELETE error:", err?.message || err);
     return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
   }
 }

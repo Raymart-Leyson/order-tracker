@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 
-const uri = "mongodb+srv://ddrayleydd_db_user:aX84XBFIkRICCPYV@project1.ooihnzf.mongodb.net/project1?retryWrites=true&w=majority";
+const uri = process.env.MONGODB_URI;
 
 if (!uri) {
   throw new Error("MongoDB URI is missing!");
