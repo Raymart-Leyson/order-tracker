@@ -3,7 +3,6 @@
 import Sidebar from "../../../../components/sidebar";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
-import printJS from "print-js";
 
 interface Order {
   _id?: string;
@@ -28,14 +27,14 @@ export default function ClientDetails() {
   const [isEditingMode, setIsEditingMode] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         const res = await fetch("/api/orders", { cache: "no-store" });
         const allOrders: Order[] = await res.json();
-
-        const filtered = allOrders.filter(
-          (o) => o.client === decodedClient && o.date === decodedDate
+        const filtered: Order[] = allOrders.filter(
+          (o: Order) => o.client === decodedClient && o.date === decodedDate
         );
         setOrders(filtered);
       } catch (err) {
@@ -45,30 +44,27 @@ export default function ClientDetails() {
         setLoading(false);
       }
     };
-
     if (decodedDate && decodedClient) fetchOrders();
   }, [decodedDate, decodedClient]);
 
-  const toggleEditingMode = () => {
-    setIsEditingMode(!isEditingMode);
-    if (!isEditingMode) {
-      // Reset all rows to not editing initially
-      setOrders((prev) => prev.map((o) => ({ ...o, isEditing: false })));
-    }
-  };
+  // Toggle overall editing mode
+  const toggleEditingMode = () => setIsEditingMode(!isEditingMode);
 
+  // Toggle individual row editing
   const handleEditToggle = (index: number) => {
     const updated = [...orders];
     updated[index].isEditing = !updated[index].isEditing;
     setOrders(updated);
   };
 
+  // Handle input changes
   const handleChange = (index: number, field: keyof Order, value: string) => {
     const updated = [...orders];
     updated[index][field] = value;
     setOrders(updated);
   };
 
+  // Save individual order
   const handleSave = async (index: number) => {
     try {
       const order = orders[index];
@@ -77,9 +73,7 @@ export default function ClientDetails() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(order),
       });
-
       if (!res.ok) throw new Error("Failed to update order.");
-
       alert("Order updated successfully!");
       handleEditToggle(index);
     } catch (err) {
@@ -88,9 +82,9 @@ export default function ClientDetails() {
     }
   };
 
+  // Delete individual order
   const handleDelete = async (index: number) => {
     if (!confirm("Are you sure you want to delete this order?")) return;
-
     try {
       const order = orders[index];
       const res = await fetch("/api/orders", {
@@ -98,9 +92,7 @@ export default function ClientDetails() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(order),
       });
-
       if (!res.ok) throw new Error("Failed to delete order.");
-
       setOrders((prev) => prev.filter((_, i) => i !== index));
       alert("Order deleted successfully!");
     } catch (err) {
@@ -109,15 +101,39 @@ export default function ClientDetails() {
     }
   };
 
+  // Print receipt (mobile friendly)
   const handlePrint = () => {
-    if (!printRef.current) return;
+    const printContents = printRef.current?.innerHTML;
+    if (!printContents) return;
 
-    // Use print-js for mobile & desktop compatibility
-    printJS({
-      printable: printRef.current,
-      type: "html",
-      targetStyles: ["*"],
-    });
+    const isMobile = /Mobi|Android|iPad/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      const html = `
+        <html>
+          <head>
+            <title>Receipt</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 10px; background: white; }
+              h1,h2 { text-align: center; margin: 5px 0; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+              .total { font-weight: bold; margin-top: 10px; display: flex; justify-content: space-between; }
+              @media print { body { margin: 0; } @page { size: auto; margin: 10mm; } }
+            </style>
+          </head>
+          <body>
+            ${printContents}
+            <script>window.onload = function(){window.print();}</script>
+          </body>
+        </html>
+      `;
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } else {
+      window.print();
+    }
   };
 
   if (loading)
