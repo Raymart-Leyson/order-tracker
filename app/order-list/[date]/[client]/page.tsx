@@ -3,16 +3,15 @@
 import Sidebar from "../../../../components/sidebar";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
+import printJS from "print-js";
 
 interface Order {
+  _id?: string;
   client: string;
   product: string;
   quantity: string;
   price: string;
   date: string;
-}
-
-interface EditableRow extends Order {
   isEditing?: boolean;
 }
 
@@ -24,8 +23,9 @@ export default function ClientDetails() {
   const decodedDate = decodeURIComponent(dateParam);
   const decodedClient = decodeURIComponent(clientParam);
 
-  const [orders, setOrders] = useState<EditableRow[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditingMode, setIsEditingMode] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +48,14 @@ export default function ClientDetails() {
 
     if (decodedDate && decodedClient) fetchOrders();
   }, [decodedDate, decodedClient]);
+
+  const toggleEditingMode = () => {
+    setIsEditingMode(!isEditingMode);
+    if (!isEditingMode) {
+      // Reset all rows to not editing initially
+      setOrders((prev) => prev.map((o) => ({ ...o, isEditing: false })));
+    }
+  };
 
   const handleEditToggle = (index: number) => {
     const updated = [...orders];
@@ -102,42 +110,14 @@ export default function ClientDetails() {
   };
 
   const handlePrint = () => {
-    const printContents = printRef.current?.innerHTML;
-    if (!printContents) return;
+    if (!printRef.current) return;
 
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // Open new window for mobile-friendly print
-      const newWindow = window.open("", "_blank");
-      if (!newWindow) return;
-      newWindow.document.write(`
-        <html>
-          <head>
-            <title>Receipt</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 10px; background: white; }
-              h1,h2 { text-align: center; margin: 5px 0; }
-              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-              .total { font-weight: bold; margin-top: 10px; display: flex; justify-content: space-between; }
-              @media print {
-                body { margin: 0; }
-              }
-            </style>
-          </head>
-          <body>
-            ${printContents}
-          </body>
-        </html>
-      `);
-      newWindow.document.close();
-      newWindow.focus();
-      newWindow.print();
-    } else {
-      // Desktop print
-      window.print();
-    }
+    // Use print-js for mobile & desktop compatibility
+    printJS({
+      printable: printRef.current,
+      type: "html",
+      targetStyles: ["*"],
+    });
   };
 
   if (loading)
@@ -156,52 +136,35 @@ export default function ClientDetails() {
         <style jsx global>{`
           @media print {
             aside,
-            .no-print {
-              display: none !important;
-            }
-            body {
-              background: white;
-            }
-            main {
-              padding: 0;
-            }
-            table {
-              width: 100%;
-              font-size: 12px;
-              border-collapse: collapse;
-            }
-            th, td {
-              border: 1px solid #ccc;
-              padding: 6px;
-            }
-            th:last-child,
-            td:last-child {
-              display: none; /* hide Actions column */
-            }
-
-            /* Mobile-friendly print scaling */
-            @page {
-              size: auto;
-              margin: 10mm;
-            }
-            @media (max-width: 768px) {
-              table { font-size: 10px; }
-              h1, h2 { font-size: 16px; }
-            }
+            .no-print { display: none !important; }
+            body { background: white; }
+            main { padding: 0; }
+            table { width: 100%; font-size: 12px; border-collapse: collapse; }
+            th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+            @page { size: auto; margin: 10mm; }
+            @media (max-width: 768px) { table { font-size: 10px; } h1,h2 { font-size: 16px; } }
           }
         `}</style>
 
-        <div className="flex justify-between items-center mb-4 no-print">
+        <div className="flex justify-between items-center mb-4 no-print space-x-2">
           <div>
             <h1 className="text-3xl font-bold">{decodedClient}</h1>
             <p className="text-gray-600">{decodedDate}</p>
           </div>
-          <button
-            onClick={handlePrint}
-            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
-          >
-            🖨️ Print Receipt
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={handlePrint}
+              className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
+            >
+              🖨️ Print Receipt
+            </button>
+            <button
+              onClick={toggleEditingMode}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              ✏️ Edit
+            </button>
+          </div>
         </div>
 
         <div ref={printRef}>
@@ -217,7 +180,7 @@ export default function ClientDetails() {
                   <th className="py-2">Product</th>
                   <th className="py-2 text-center">Quantity</th>
                   <th className="py-2 text-center">Price</th>
-                  <th className="py-2 text-center">Actions</th>
+                  {isEditingMode && <th className="py-2 text-center">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -248,39 +211,41 @@ export default function ClientDetails() {
                         item.price
                       )}
                     </td>
-                    <td className="py-2 text-center space-x-2">
-                      {item.isEditing ? (
-                        <>
-                          <button
-                            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-                            onClick={() => handleSave(i)}
-                          >
-                            Save
-                          </button>
-                          <button
-                            className="bg-gray-400 text-white px-3 py-1 rounded hover:bg-gray-500"
-                            onClick={() => handleEditToggle(i)}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                            onClick={() => handleEditToggle(i)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                            onClick={() => handleDelete(i)}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </td>
+                    {isEditingMode && (
+                      <td className="py-2 text-center space-x-2">
+                        {item.isEditing ? (
+                          <>
+                            <button
+                              className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                              onClick={() => handleSave(i)}
+                            >
+                              Save
+                            </button>
+                            <button
+                              className="bg-gray-400 text-white px-3 py-1 rounded hover:bg-gray-500"
+                              onClick={() => handleEditToggle(i)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                              onClick={() => handleEditToggle(i)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                              onClick={() => handleDelete(i)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
