@@ -3,6 +3,8 @@
 import Sidebar from "../../../../components/sidebar";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
+// @ts-ignore
+import domtoimage from "dom-to-image-more";
 
 interface Order {
   _id?: string;
@@ -27,7 +29,6 @@ export default function ClientDetails() {
   const [isEditingMode, setIsEditingMode] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -47,24 +48,20 @@ export default function ClientDetails() {
     if (decodedDate && decodedClient) fetchOrders();
   }, [decodedDate, decodedClient]);
 
-  // Toggle overall editing mode
   const toggleEditingMode = () => setIsEditingMode(!isEditingMode);
 
-  // Toggle individual row editing
   const handleEditToggle = (index: number) => {
     const updated = [...orders];
     updated[index].isEditing = !updated[index].isEditing;
     setOrders(updated);
   };
 
-  // Handle input changes
   const handleChange = (index: number, field: 'product' | 'quantity' | 'price', value: string) => {
     const updated = [...orders];
     updated[index][field] = value;
     setOrders(updated);
   };
 
-  // Save individual order
   const handleSave = async (index: number) => {
     try {
       const order = orders[index];
@@ -82,7 +79,6 @@ export default function ClientDetails() {
     }
   };
 
-  // Delete individual order
   const handleDelete = async (index: number) => {
     if (!confirm("Are you sure you want to delete this order?")) return;
     try {
@@ -101,40 +97,96 @@ export default function ClientDetails() {
     }
   };
 
-  // Print receipt (mobile friendly)
-  const handlePrint = () => {
-    const printContents = printRef.current?.innerHTML;
-    if (!printContents) return;
+  const handleSaveAsImage = async () => {
+  if (!printRef.current) return;
 
-    const isMobile = /Mobi|Android|iPad/i.test(navigator.userAgent);
+  try {
+    // Clone the element
+    const node = printRef.current.cloneNode(true) as HTMLElement;
 
-    if (isMobile) {
-      const html = `
-        <html>
-          <head>
-            <title>Receipt</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 10px; background: white; }
-              h1,h2 { text-align: center; margin: 5px 0; }
-              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-              .total { font-weight: bold; margin-top: 10px; display: flex; justify-content: space-between; }
-              @media print { body { margin: 0; } @page { size: auto; margin: 10mm; } }
-            </style>
-          </head>
-          <body>
-            ${printContents}
-            <script>window.onload = function(){window.print();}</script>
-          </body>
-        </html>
-      `;
-      const blob = new Blob([html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-    } else {
-      window.print();
+    // Apply clean styles
+    node.style.overflow = "visible";
+    node.style.padding = "20px";
+    node.style.backgroundColor = "#ffffff";
+    node.style.fontFamily = "'Helvetica Neue', Arial, sans-serif";
+    node.style.color = "#222";
+    node.style.width = "auto";
+    node.style.maxHeight = "none";
+
+    // Clean child elements
+    (node.querySelectorAll("*") as NodeListOf<HTMLElement>).forEach((el) => {
+      el.style.border = "none";
+      el.style.boxShadow = "none";
+      el.style.borderRadius = "0";
+      el.style.padding = "0";
+      el.style.margin = "0";
+      el.style.fontSize = "14px";
+      el.style.lineHeight = "1.5";
+      el.style.maxHeight = "none";
+      el.style.overflow = "visible";
+    });
+
+    // Style the table
+    const table = node.querySelector("table");
+    if (table) {
+      table.style.width = "100%";
+      table.style.borderCollapse = "collapse";
+      table.querySelectorAll("th, td").forEach((cell) => {
+        const c = cell as HTMLElement;
+        c.style.borderBottom = "1px solid #ccc";
+        c.style.padding = "8px 12px";
+        c.style.textAlign = c.tagName === "TH" ? "center" : "left";
+      });
     }
-  };
+
+    // Style header
+    const header = node.querySelector("h2");
+    if (header) {
+      header.style.textAlign = "center";
+      header.style.fontSize = "18px";
+      header.style.fontWeight = "600";
+      header.style.marginBottom = "8px";
+    }
+
+    const subtitle = node.querySelector("p");
+    if (subtitle) {
+      subtitle.style.textAlign = "center";
+      subtitle.style.fontSize = "12px";
+      subtitle.style.color = "#555";
+      subtitle.style.marginBottom = "16px";
+    }
+
+    // Temporarily attach the node to body so dom-to-image can measure full size
+    node.style.position = "absolute";
+    node.style.top = "-9999px";
+    document.body.appendChild(node);
+
+    // Capture full node as PNG
+    const dataUrl = await domtoimage.toPng(node, {
+      bgcolor: "#ffffff",
+      width: node.scrollWidth,
+      height: node.scrollHeight,
+      style: {
+        transform: "scale(1)",
+        transformOrigin: "top left",
+        overflow: "visible",
+      },
+    });
+
+    // Remove temporary node
+    document.body.removeChild(node);
+
+    // Trigger download
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `${decodedClient}_${decodedDate}.png`;
+    link.click();
+  } catch (err) {
+    console.error("Failed to save image:", err);
+    alert("Failed to save receipt as image.");
+  }
+};
+
 
   if (loading)
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -149,30 +201,17 @@ export default function ClientDetails() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar active="Order List…" />
       <main className="flex-1 p-10">
-        <style jsx global>{`
-          @media print {
-            aside,
-            .no-print { display: none !important; }
-            body { background: white; }
-            main { padding: 0; }
-            table { width: 100%; font-size: 12px; border-collapse: collapse; }
-            th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-            @page { size: auto; margin: 10mm; }
-            @media (max-width: 768px) { table { font-size: 10px; } h1,h2 { font-size: 16px; } }
-          }
-        `}</style>
-
         <div className="flex justify-between items-center mb-4 no-print space-x-2">
           <div>
-            <h1 className="text-3xl font-bold">{decodedClient}</h1>
-            <p className="text-gray-600">{decodedDate}</p>
+            <h1 className="text-3xl font-bold print:text-xl">{decodedClient}</h1>
+            <p className="text-gray-600 print:text-sm">{decodedDate}</p>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 no-print">
             <button
-              onClick={handlePrint}
+              onClick={handleSaveAsImage}
               className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
             >
-              🖨️ Print Receipt
+              💾 Save Receipt
             </button>
             <button
               onClick={toggleEditingMode}
@@ -184,19 +223,19 @@ export default function ClientDetails() {
         </div>
 
         <div ref={printRef}>
-          <h2 className="text-center font-semibold text-lg">Receipt</h2>
-          <p className="text-center text-gray-500 text-sm">
+          <h2 className="text-center font-semibold text-lg print:text-base">Receipt</h2>
+          <p className="text-center text-gray-500 text-sm print:text-xs">
             Client: {decodedClient} — Date: {decodedDate}
           </p>
 
-          <div className="bg-white p-6 rounded-2xl shadow-md mt-4 overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+          <div className="bg-white p-6 rounded-2xl shadow-md mt-4 overflow-x-auto print:shadow-none print:rounded-none print:p-0">
+            <table className="w-full text-left text-sm border-collapse print:text-xs">
               <thead>
                 <tr className="text-gray-500 border-b">
                   <th className="py-2">Product</th>
                   <th className="py-2 text-center">Quantity</th>
                   <th className="py-2 text-center">Price</th>
-                  {isEditingMode && <th className="py-2 text-center">Actions</th>}
+                  {isEditingMode && <th className="py-2 text-center no-print">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -228,7 +267,7 @@ export default function ClientDetails() {
                       )}
                     </td>
                     {isEditingMode && (
-                      <td className="py-2 text-center space-x-2">
+                      <td className="py-2 text-center space-x-2 no-print">
                         {item.isEditing ? (
                           <>
                             <button
@@ -267,7 +306,7 @@ export default function ClientDetails() {
               </tbody>
             </table>
 
-            <div className="flex justify-between font-semibold text-sm border-t pt-4 mt-4">
+            <div className="flex justify-between font-semibold text-sm border-t pt-4 mt-4 print:text-xs">
               <span>Total</span>
               <span>₱{total.toLocaleString()}</span>
             </div>
