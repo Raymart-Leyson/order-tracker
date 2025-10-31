@@ -98,80 +98,79 @@ export default function ClientDetails() {
   };
 
   const handleSaveAsImage = async () => {
-  if (!printRef.current) return;
-
-  try {
-    const node = printRef.current.cloneNode(true) as HTMLElement;
-    // Apply receipt-specific styles for image clarity
-    node.style.background = "#fff";
-    node.style.padding = "24px";
-    node.style.fontFamily = "'Helvetica Neue', Arial, sans-serif";
-    node.style.width = "500px";
-    node.style.textAlign = "left";
-
-    node.querySelectorAll("*").forEach((el) => {
-      el.style.border = "none";
-      el.style.boxShadow = "none";
-      el.style.borderRadius = "0";
-      el.style.padding = "0";
-      el.style.margin = "0";
-      el.style.fontSize = "14px";
-      el.style.lineHeight = "1.5";
-      el.style.color = "#222";
-      el.style.textAlign = "left";
-    });
-
-    const table = node.querySelector("table");
-    if (table) {
-      table.style.width = "100%";
-      table.style.borderCollapse = "collapse";
-      table.querySelectorAll("th, td").forEach((cell) => {
-        cell.style.borderBottom = "1px solid #ccc";
-        cell.style.padding = "8px 12px";
-        cell.style.textAlign = cell.tagName === "TH" ? "center" : "left";
+    if (!printRef.current) return;
+    try {
+      const node = printRef.current.cloneNode(true) as HTMLElement;
+      node.style.background = "#fff";
+      node.style.padding = "24px";
+      node.style.fontFamily = "'Helvetica Neue', Arial, sans-serif";
+      node.style.width = "500px";
+      node.style.textAlign = "left";
+      // Use instanceof HTMLElement for safe style access
+      node.querySelectorAll("*").forEach((el) => {
+        if (el instanceof HTMLElement) {
+          el.style.border = "none";
+          el.style.boxShadow = "none";
+          el.style.borderRadius = "0";
+          el.style.padding = "0";
+          el.style.margin = "0";
+          el.style.fontSize = "14px";
+          el.style.lineHeight = "1.5";
+          el.style.color = "#222";
+          el.style.textAlign = "left";
+        }
       });
+
+      const table = node.querySelector("table");
+      if (table && table instanceof HTMLElement) {
+        table.style.width = "100%";
+        table.style.borderCollapse = "collapse";
+        table.querySelectorAll("th, td").forEach((cell) => {
+          if (cell instanceof HTMLElement) {
+            cell.style.borderBottom = "1px solid #ccc";
+            cell.style.padding = "8px 12px";
+            cell.style.textAlign = cell.tagName === "TH" ? "center" : "left";
+          }
+        });
+      }
+
+      const header = node.querySelector("h2");
+      if (header instanceof HTMLElement) {
+        header.style.textAlign = "center";
+        header.style.fontSize = "18px";
+        header.style.fontWeight = "600";
+        header.style.marginBottom = "8px";
+      }
+      const subtitle = node.querySelector("p");
+      if (subtitle instanceof HTMLElement) {
+        subtitle.style.textAlign = "center";
+        subtitle.style.fontSize = "12px";
+        subtitle.style.color = "#555";
+        subtitle.style.marginBottom = "16px";
+      }
+
+      node.style.position = "absolute";
+      node.style.top = "-9999px";
+      document.body.appendChild(node);
+
+      const dataUrl = await domtoimage.toPng(node, {
+        bgcolor: "#fff",
+        width: node.scrollWidth,
+        height: node.scrollHeight,
+        style: { transform: "scale(1)", transformOrigin: "top left" },
+      });
+
+      document.body.removeChild(node);
+
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `${decodedClient}_${decodedDate}_receipt.png`;
+      link.click();
+    } catch (err) {
+      console.error("Failed to save receipt as image:", err);
+      alert("Failed to save receipt as image.");
     }
-
-    // Receipt header styling
-    const header = node.querySelector("h2");
-    if (header) {
-      header.style.textAlign = "center";
-      header.style.fontSize = "18px";
-      header.style.fontWeight = "600";
-      header.style.marginBottom = "8px";
-    }
-    // Subtitle styling
-    const subtitle = node.querySelector("p");
-    if (subtitle) {
-      subtitle.style.textAlign = "center";
-      subtitle.style.fontSize = "12px";
-      subtitle.style.color = "#555";
-      subtitle.style.marginBottom = "16px";
-    }
-
-    node.style.position = "absolute";
-    node.style.top = "-9999px";
-    document.body.appendChild(node);
-
-    const dataUrl = await domtoimage.toPng(node, {
-      bgcolor: "#fff",
-      width: node.scrollWidth,
-      height: node.scrollHeight,
-      style: { transform: "scale(1)", transformOrigin: "top left" },
-    });
-
-    document.body.removeChild(node);
-
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = `${decodedClient}_${decodedDate}_receipt.png`;
-    link.click();
-  } catch (err) {
-    console.error("Failed to save receipt as image:", err);
-    alert("Failed to save receipt as image.");
-  }
-};
-
+  };
 
   if (loading)
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -206,13 +205,11 @@ export default function ClientDetails() {
             </button>
           </div>
         </div>
-
         <div ref={printRef}>
           <h2 className="text-center font-semibold text-lg print:text-base">Receipt</h2>
           <p className="text-center text-gray-500 text-sm print:text-xs">
             Client: {decodedClient} — Date: {decodedDate}
           </p>
-
           <div className="bg-white p-6 rounded-2xl shadow-md mt-4 overflow-x-auto print:shadow-none print:rounded-none print:p-0">
             <table className="w-full text-left text-sm border-collapse print:text-xs">
               <thead>
@@ -290,7 +287,6 @@ export default function ClientDetails() {
                 ))}
               </tbody>
             </table>
-
             <div className="flex justify-between font-bold text-sm border-t pt-6 mt-6 print:text-xs">
               <span>Total</span>
               <span>₱{total.toLocaleString()}</span>
