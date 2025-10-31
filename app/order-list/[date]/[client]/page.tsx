@@ -58,7 +58,7 @@ export default function ClientDetails() {
   };
 
   // Handle input changes
-  const handleChange = (index: number, field: keyof Order, value: string) => {
+  const handleChange = (index: number, field: 'product' | 'quantity' | 'price', value: string) => {
     const updated = [...orders];
     updated[index][field] = value;
     setOrders(updated);
