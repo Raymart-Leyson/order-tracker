@@ -101,20 +101,15 @@ export default function ClientDetails() {
   if (!printRef.current) return;
 
   try {
-    // Clone the element
     const node = printRef.current.cloneNode(true) as HTMLElement;
-
-    // Apply clean styles
-    node.style.overflow = "visible";
-    node.style.padding = "20px";
-    node.style.backgroundColor = "#ffffff";
+    // Apply receipt-specific styles for image clarity
+    node.style.background = "#fff";
+    node.style.padding = "24px";
     node.style.fontFamily = "'Helvetica Neue', Arial, sans-serif";
-    node.style.color = "#222";
-    node.style.width = "auto";
-    node.style.maxHeight = "none";
+    node.style.width = "500px";
+    node.style.textAlign = "left";
 
-    // Clean child elements
-    (node.querySelectorAll("*") as NodeListOf<HTMLElement>).forEach((el) => {
+    node.querySelectorAll("*").forEach((el) => {
       el.style.border = "none";
       el.style.boxShadow = "none";
       el.style.borderRadius = "0";
@@ -122,24 +117,22 @@ export default function ClientDetails() {
       el.style.margin = "0";
       el.style.fontSize = "14px";
       el.style.lineHeight = "1.5";
-      el.style.maxHeight = "none";
-      el.style.overflow = "visible";
+      el.style.color = "#222";
+      el.style.textAlign = "left";
     });
 
-    // Style the table
     const table = node.querySelector("table");
     if (table) {
       table.style.width = "100%";
       table.style.borderCollapse = "collapse";
       table.querySelectorAll("th, td").forEach((cell) => {
-        const c = cell as HTMLElement;
-        c.style.borderBottom = "1px solid #ccc";
-        c.style.padding = "8px 12px";
-        c.style.textAlign = c.tagName === "TH" ? "center" : "left";
+        cell.style.borderBottom = "1px solid #ccc";
+        cell.style.padding = "8px 12px";
+        cell.style.textAlign = cell.tagName === "TH" ? "center" : "left";
       });
     }
 
-    // Style header
+    // Receipt header styling
     const header = node.querySelector("h2");
     if (header) {
       header.style.textAlign = "center";
@@ -147,7 +140,7 @@ export default function ClientDetails() {
       header.style.fontWeight = "600";
       header.style.marginBottom = "8px";
     }
-
+    // Subtitle styling
     const subtitle = node.querySelector("p");
     if (subtitle) {
       subtitle.style.textAlign = "center";
@@ -156,33 +149,25 @@ export default function ClientDetails() {
       subtitle.style.marginBottom = "16px";
     }
 
-    // Temporarily attach the node to body so dom-to-image can measure full size
     node.style.position = "absolute";
     node.style.top = "-9999px";
     document.body.appendChild(node);
 
-    // Capture full node as PNG
     const dataUrl = await domtoimage.toPng(node, {
-      bgcolor: "#ffffff",
+      bgcolor: "#fff",
       width: node.scrollWidth,
       height: node.scrollHeight,
-      style: {
-        transform: "scale(1)",
-        transformOrigin: "top left",
-        overflow: "visible",
-      },
+      style: { transform: "scale(1)", transformOrigin: "top left" },
     });
 
-    // Remove temporary node
     document.body.removeChild(node);
 
-    // Trigger download
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = `${decodedClient}_${decodedDate}.png`;
+    link.download = `${decodedClient}_${decodedDate}_receipt.png`;
     link.click();
   } catch (err) {
-    console.error("Failed to save image:", err);
+    console.error("Failed to save receipt as image:", err);
     alert("Failed to save receipt as image.");
   }
 };
@@ -232,17 +217,17 @@ export default function ClientDetails() {
             <table className="w-full text-left text-sm border-collapse print:text-xs">
               <thead>
                 <tr className="text-gray-500 border-b">
-                  <th className="py-2">Product</th>
-                  <th className="py-2 text-center">Quantity</th>
-                  <th className="py-2 text-center">Price</th>
-                  {isEditingMode && <th className="py-2 text-center no-print">Actions</th>}
+                  <th className="py-3 px-2">Product</th>
+                  <th className="py-3 px-2 text-center">Quantity</th>
+                  <th className="py-3 px-2 text-center">Price</th>
+                  {isEditingMode && <th className="py-3 px-2 text-center no-print">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {orders.map((item, i) => (
                   <tr key={i} className="border-b last:border-none">
-                    <td className="py-2">{item.product}</td>
-                    <td className="py-2 text-center">
+                    <td className="py-3 px-2">{item.product}</td>
+                    <td className="py-3 px-2 text-center">
                       {item.isEditing ? (
                         <input
                           type="number"
@@ -254,7 +239,7 @@ export default function ClientDetails() {
                         item.quantity
                       )}
                     </td>
-                    <td className="py-2 text-center">
+                    <td className="py-3 px-2 text-center">
                       {item.isEditing ? (
                         <input
                           type="text"
@@ -267,7 +252,7 @@ export default function ClientDetails() {
                       )}
                     </td>
                     {isEditingMode && (
-                      <td className="py-2 text-center space-x-2 no-print">
+                      <td className="py-3 px-2 text-center space-x-2 no-print">
                         {item.isEditing ? (
                           <>
                             <button
@@ -306,7 +291,7 @@ export default function ClientDetails() {
               </tbody>
             </table>
 
-            <div className="flex justify-between font-semibold text-sm border-t pt-4 mt-4 print:text-xs">
+            <div className="flex justify-between font-bold text-sm border-t pt-6 mt-6 print:text-xs">
               <span>Total</span>
               <span>₱{total.toLocaleString()}</span>
             </div>
