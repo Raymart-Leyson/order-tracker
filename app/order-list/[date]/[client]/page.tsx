@@ -2,7 +2,7 @@
 
 import Sidebar from "../../../../components/sidebar";
 import { useParams } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface Order {
   client: string;
@@ -26,8 +26,8 @@ export default function ClientDetails() {
 
   const [orders, setOrders] = useState<EditableRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const printRef = useRef<HTMLDivElement>(null);
 
-  // 🔹 Fetch all orders and filter by client + date
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -61,20 +61,13 @@ export default function ClientDetails() {
     setOrders(updated);
   };
 
-  // ✅ PATCH request
   const handleSave = async (index: number) => {
     try {
       const order = orders[index];
       const res = await fetch("/api/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client: order.client,
-          product: order.product,
-          date: order.date,
-          quantity: order.quantity,
-          price: order.price,
-        }),
+        body: JSON.stringify(order),
       });
 
       if (!res.ok) throw new Error("Failed to update order.");
@@ -87,7 +80,6 @@ export default function ClientDetails() {
     }
   };
 
-  // ✅ DELETE request
   const handleDelete = async (index: number) => {
     if (!confirm("Are you sure you want to delete this order?")) return;
 
@@ -96,11 +88,7 @@ export default function ClientDetails() {
       const res = await fetch("/api/orders", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client: order.client,
-          product: order.product,
-          date: order.date,
-        }),
+        body: JSON.stringify(order),
       });
 
       if (!res.ok) throw new Error("Failed to delete order.");
@@ -111,6 +99,10 @@ export default function ClientDetails() {
       console.error(err);
       alert("Failed to delete order.");
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   if (loading)
@@ -126,88 +118,129 @@ export default function ClientDetails() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar active="Order List…" />
       <main className="flex-1 p-10">
-        <h1 className="text-3xl font-bold mb-4">{decodedClient}</h1>
-        <p className="text-gray-600 mb-6">{decodedDate}</p>
+        <style jsx global>{`
+          /* 🧾 Hide sidebar and buttons in print */
+          @media print {
+            aside,
+            .no-print {
+              display: none !important;
+            }
+            body {
+              background: white;
+            }
+            main {
+              padding: 0;
+            }
+            table {
+              width: 100%;
+              font-size: 12px;
+            }
+            th:last-child,
+            td:last-child {
+              display: none; /* hide Actions column */
+            }
+          }
+        `}</style>
 
-        <div className="bg-white p-6 rounded-2xl shadow-md">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="text-gray-500 border-b">
-                <th className="py-2">Product</th>
-                <th className="py-2 text-center">Quantity</th>
-                <th className="py-2 text-center">Price</th>
-                <th className="py-2 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((item, i) => (
-                <tr key={i} className="border-b last:border-none">
-                  <td className="py-2">{item.product}</td>
-                  <td className="py-2 text-center">
-                    {item.isEditing ? (
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => handleChange(i, "quantity", e.target.value)}
-                        className="border rounded px-2 py-1 w-16 text-center"
-                      />
-                    ) : (
-                      item.quantity
-                    )}
-                  </td>
-                  <td className="py-2 text-center">
-                    {item.isEditing ? (
-                      <input
-                        type="text"
-                        value={item.price}
-                        onChange={(e) => handleChange(i, "price", e.target.value)}
-                        className="border rounded px-2 py-1 w-20 text-center"
-                      />
-                    ) : (
-                      item.price
-                    )}
-                  </td>
-                  <td className="py-2 text-center space-x-2">
-                    {item.isEditing ? (
-                      <>
-                        <button
-                          className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-                          onClick={() => handleSave(i)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="bg-gray-400 text-white px-3 py-1 rounded hover:bg-gray-500"
-                          onClick={() => handleEditToggle(i)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                          onClick={() => handleEditToggle(i)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                          onClick={() => handleDelete(i)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </td>
+        <div className="flex justify-between items-center mb-4 no-print">
+          <div>
+            <h1 className="text-3xl font-bold">{decodedClient}</h1>
+            <p className="text-gray-600">{decodedDate}</p>
+          </div>
+          <button
+            onClick={handlePrint}
+            className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
+          >
+            🖨️ Print Receipt
+          </button>
+        </div>
+
+        <div ref={printRef}>
+          <h2 className="text-center font-semibold text-lg">Receipt</h2>
+          <p className="text-center text-gray-500 text-sm">
+            Client: {decodedClient} — Date: {decodedDate}
+          </p>
+
+          <div className="bg-white p-6 rounded-2xl shadow-md mt-4">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="text-gray-500 border-b">
+                  <th className="py-2">Product</th>
+                  <th className="py-2 text-center">Quantity</th>
+                  <th className="py-2 text-center">Price</th>
+                  <th className="py-2 text-center">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {orders.map((item, i) => (
+                  <tr key={i} className="border-b last:border-none">
+                    <td className="py-2">{item.product}</td>
+                    <td className="py-2 text-center">
+                      {item.isEditing ? (
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleChange(i, "quantity", e.target.value)}
+                          className="border rounded px-2 py-1 w-16 text-center"
+                        />
+                      ) : (
+                        item.quantity
+                      )}
+                    </td>
+                    <td className="py-2 text-center">
+                      {item.isEditing ? (
+                        <input
+                          type="text"
+                          value={item.price}
+                          onChange={(e) => handleChange(i, "price", e.target.value)}
+                          className="border rounded px-2 py-1 w-20 text-center"
+                        />
+                      ) : (
+                        item.price
+                      )}
+                    </td>
+                    <td className="py-2 text-center space-x-2">
+                      {item.isEditing ? (
+                        <>
+                          <button
+                            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                            onClick={() => handleSave(i)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="bg-gray-400 text-white px-3 py-1 rounded hover:bg-gray-500"
+                            onClick={() => handleEditToggle(i)}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                            onClick={() => handleEditToggle(i)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                            onClick={() => handleDelete(i)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          <div className="flex justify-between font-semibold text-sm border-t pt-4 mt-4">
-            <span>Total</span>
-            <span>₱{total.toLocaleString()}</span>
+            <div className="flex justify-between font-semibold text-sm border-t pt-4 mt-4">
+              <span>Total</span>
+              <span>₱{total.toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </main>
